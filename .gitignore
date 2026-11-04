@@ -218,3 +218,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Clivra uploads and generated outputs
+backend/uploads/
+backend/outputs/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Local database
+*.db
+*.sqlite3
+
+fastapi[standard]
+yt-dlp
