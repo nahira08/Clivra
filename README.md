@@ -1,2 +1,2 @@
 # Clivra
-AI Powered Twitch Highlight Generator
+AI Powered Twitch Highlight ... apa yeaaa
