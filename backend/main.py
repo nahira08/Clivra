@@ -1,34 +1,86 @@
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pathlib import Path
 from uuid import uuid4
 from urllib.parse import urlsplit
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
+
 import re
+import sys
+import subprocess
 
 app = FastAPI(
     title="Clivra API",
     description="AI-Powered Twitch Funny Moment Detection",
-    version="0.3.0"
+    version="0.4.0"
 )
 
-UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
+BASE_DIR = Path(__file__).resolve().parent 
+
+UPLOAD_DIR = BASE_DIR / "uploads"
+OUTPUT_DIR = BASE_DIR / "outputs"
+
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_FILE_SIZE = 100 * 1024 * 1024
 
-
-# Model data untuk input link Twitch
 class TwitchURL(BaseModel):
     url: str
+
+class TwitchPrepareRequest(BaseModel):
+    url: str
+    start_seconds: int = Field(default=0, ge=0)
+
+def validate_twitch_url(url: str):
+
+    try:
+        parsed = urlsplit(url.strip())
+
+        allowed_hosts = {
+            "twitch.tv",
+            "www.twitch.tv",
+            "m.twitch.tv"
+        }
+
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname not in allowed_hosts
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.port is not None
+        ):
+            raise ValueError("Invalid Twitch domain")
+
+        match = re.fullmatch(
+            r"/videos/([0-9]+)/?",
+            parsed.path
+        )
+
+        if not match:
+            raise ValueError("Invalid Twitch VOD path")
+
+        video_id = match.group(1)
+
+        twitch_url = (
+            f"https://www.twitch.tv/videos/{video_id}"
+        )
+
+        return video_id, twitch_url
+
+    except (ValueError, AttributeError):
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide a valid Twitch VOD URL"
+        )
 
 @app.get("/")
 def home():
     return {
         "message": "Welcome to Clivra API!",
-        "version": "0.3.0"
+        "version": "0.4.0"
     }
 
 @app.get("/api/health")
@@ -41,7 +93,10 @@ def health_check():
 @app.post("/api/videos/upload")
 def upload_video(file: UploadFile = File(...)):
 
-    if not file.filename or not file.filename.lower().endswith(".mp4"):
+    if (
+        not file.filename
+        or not file.filename.lower().endswith(".mp4")
+    ):
         raise HTTPException(
             status_code=400,
             detail="Only MP4 videos are allowed"
@@ -56,7 +111,11 @@ def upload_video(file: UploadFile = File(...)):
     try:
         with file_path.open("wb") as buffer:
 
-            while chunk := file.file.read(1024 * 1024):
+            while True:
+                chunk = file.file.read(1024 * 1024)
+
+                if not chunk:
+                    break
 
                 file_size += len(chunk)
 
@@ -100,46 +159,9 @@ def upload_video(file: UploadFile = File(...)):
 @app.post("/api/twitch/info")
 def get_twitch_info(data: TwitchURL):
 
-    try:
-        parsed_url = urlsplit(data.url)
-    except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid Twitch URL"
-        )
-
-    allowed_hosts = {
-        "twitch.tv",
-        "www.twitch.tv",
-        "m.twitch.tv"
-    }
-
-    if (
-        parsed_url.scheme != "https"
-        or parsed_url.hostname not in allowed_hosts
-        or parsed_url.username is not None
-        or parsed_url.password is not None
-        or parsed_url.port is not None
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Please provide a valid HTTPS Twitch URL"
-        )
-
-    match = re.fullmatch(
-        r"/videos/([0-9]+)/?",
-        parsed_url.path
+    video_id, twitch_url = validate_twitch_url(
+        data.url
     )
-
-    if not match:
-        raise HTTPException(
-            status_code=400,
-            detail="Please provide a Twitch VOD URL"
-        )
-
-    video_id = match.group(1)
-
-    twitch_url = f"https://www.twitch.tv/videos/{video_id}"
 
     ydl_opts = {
         "quiet": True,
@@ -150,7 +172,6 @@ def get_twitch_info(data: TwitchURL):
     }
 
     try:
-
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(
                 twitch_url,
@@ -160,7 +181,7 @@ def get_twitch_info(data: TwitchURL):
         if not info:
             raise HTTPException(
                 status_code=404,
-                detail="Video information not found"
+                detail="Twitch VOD not found"
             )
 
         return {
@@ -178,4 +199,135 @@ def get_twitch_info(data: TwitchURL):
         raise HTTPException(
             status_code=502,
             detail="Unable to retrieve Twitch VOD information"
+        )
+    
+@app.post("/api/twitch/prepare")
+def prepare_twitch_video(data: TwitchPrepareRequest):
+
+    video_id, twitch_url = validate_twitch_url(
+        data.url
+    )
+
+    # Durasi cuplikan yang akan diambil
+    clip_duration = 30
+
+    start = data.start_seconds
+    end = start + clip_duration
+
+    # Membuat folder khusus untuk pekerjaan
+    job_id = str(uuid4())
+
+    job_dir = OUTPUT_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+
+    output_template = str(
+        job_dir / "clip.%(ext)s"
+    )
+
+    # Perintah yt-dlp untuk mengambil segmen
+    download_command = [
+        sys.executable,
+        "-m",
+        "yt_dlp",
+        "--no-playlist",
+        "--download-sections",
+        f"*{start}-{end}",
+        "--merge-output-format",
+        "mp4",
+        "-f",
+        "bv*+ba/b",
+        "-o",
+        output_template,
+        twitch_url
+    ]
+
+    try:
+        # Mengambil video Twitch
+        download_result = subprocess.run(
+            download_command,
+            capture_output=True,
+            text=True,
+            timeout=180
+        )
+
+        if download_result.returncode != 0:
+            raise HTTPException(
+                status_code=502,
+                detail="Failed to retrieve Twitch video segment"
+            )
+
+        # Mencari hasil file video
+        video_files = list(
+            job_dir.glob("clip.*")
+        )
+
+        video_files = [
+            path for path in video_files
+            if path.suffix.lower() in {
+                ".mp4", ".mkv", ".webm"
+            }
+        ]
+
+        if not video_files:
+            raise HTTPException(
+                status_code=502,
+                detail="Video segment was not created"
+            )
+
+        video_path = video_files[0]
+
+        # Menentukan file audio output
+        audio_path = job_dir / "audio.wav"
+
+        # Mengekstrak audio menggunakan FFmpeg
+        audio_command = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(video_path),
+            "-vn",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            str(audio_path)
+        ]
+
+        audio_result = subprocess.run(
+            audio_command,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        if (
+            audio_result.returncode != 0
+            or not audio_path.exists()
+        ):
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to extract audio"
+            )
+
+        return {
+            "status": "success",
+            "job_id": job_id,
+            "video_id": video_id,
+            "start_seconds": start,
+            "requested_end_seconds": end,
+            "video_filename": video_path.name,
+            "audio_filename": audio_path.name,
+            "message": "Twitch video prepared successfully"
+        }
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=504,
+            detail="Video processing timed out"
+        )
+
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=500,
+            detail="Required processing tool not found"
         )
