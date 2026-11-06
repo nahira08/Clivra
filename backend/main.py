@@ -2,7 +2,8 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel, Field
 from pathlib import Path
-from uuid import uuid4
+from uuid import uuid4, UUID
+from functools import lru_cache
 from urllib.parse import urlsplit
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
@@ -10,11 +11,13 @@ from yt_dlp.utils import DownloadError
 import re
 import sys
 import subprocess
+import json
+import wave
 
 app = FastAPI(
     title="Clivra API",
     description="AI-Powered Twitch Funny Moment Detection",
-    version="0.4.0"
+    version="0.5.0"
 )
 
 BASE_DIR = Path(__file__).resolve().parent 
@@ -33,6 +36,12 @@ class TwitchURL(BaseModel):
 class TwitchPrepareRequest(BaseModel):
     url: str
     start_seconds: int = Field(default=0, ge=0)
+
+class TranscribeRequest(BaseModel):
+    job_id: UUID
+    start_seconds: int = Field(ge=0)
+    language: str | None = None
+
 
 def validate_twitch_url(url: str):
 
@@ -80,7 +89,7 @@ def validate_twitch_url(url: str):
 def home():
     return {
         "message": "Welcome to Clivra API!",
-        "version": "0.4.0"
+        "version": "0.5.0"
     }
 
 @app.get("/api/health")
@@ -203,6 +212,8 @@ def get_twitch_info(data: TwitchURL):
     
 @app.post("/api/twitch/prepare")
 def prepare_twitch_video(data: TwitchPrepareRequest):
+
+    
 
     video_id, twitch_url = validate_twitch_url(
         data.url
@@ -331,3 +342,113 @@ def prepare_twitch_video(data: TwitchPrepareRequest):
             status_code=500,
             detail="Required processing tool not found"
         )
+
+@lru_cache(maxsize=1)
+def get_whisper_model():
+
+    from faster_whisper import WhisperModel
+
+    return WhisperModel(
+        "base",
+        device="cpu",
+        compute_type="int8"
+    )
+
+@app.post("/api/ai/transcribe")
+def transcribe_audio(data: TranscribeRequest):
+
+    job_id = str(data.job_id)
+    job_dir = OUTPUT_DIR / job_id
+    audio_path = job_dir / "audio.wav"
+
+    if not audio_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Audio file not found for this job"
+        )
+
+    if data.language is not None:
+        if not re.fullmatch(r"[a-z]{2}", data.language):
+            raise HTTPException(
+                status_code=400,
+                detail="Language must be a two-letter code"
+            )
+
+    try:
+        model = get_whisper_model()
+
+        segments, info = model.transcribe(
+            str(audio_path),
+            beam_size=5,
+            language=data.language,
+            vad_filter=True 
+        )
+
+        with wave.open(str(audio_path), "rb") as audio_file:
+            audio_duration = (
+                audio_file.getnframes() / audio_file.getframerate()
+            )
+
+        transcript = []
+
+        for segment in segments:
+
+            if not segment.text.strip():
+                continue
+
+            if segment.start >= audio_duration:
+                continue
+
+            local_start = round(max(0, segment.start), 2)
+            local_end = round(min(segment.end, audio_duration), 2)
+
+            if local_end <= local_start:
+                continue
+
+            transcript.append({
+                "start": local_start,
+                "end": local_end,
+                "vod_start": round(
+                    local_start + data.start_seconds, 2
+                ),
+                "vod_end": round(
+                    local_end + data.start_seconds, 2
+                ),
+                "text": segment.text.strip()
+            })
+
+        result = {
+            "status": "success",
+            "job_id": job_id,
+            "model": "faster-whisper-base",
+            "language": info.language,
+            "language_probability": round(
+                info.language_probability, 3
+            ),
+            "start_seconds": data.start_seconds,
+            "segments": transcript,
+            "message": "Audio transcription completed"
+        }
+
+        output_path = job_dir / "transcript.json"
+
+        with output_path.open(
+            "w", encoding="utf-8"
+        ) as file:
+            json.dump(
+                result,
+                file,
+                indent=2,
+                ensure_ascii=True
+            )
+
+        return result
+
+    except (RuntimeError, ValueError, OSError) as error:
+        print(f"Transcription error: {error}")
+
+        raise HTTPException(
+            status_code=500,
+            detail="Audio transcription failed"
+        )
+
