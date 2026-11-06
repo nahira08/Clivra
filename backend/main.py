@@ -7,6 +7,10 @@ from functools import lru_cache
 from urllib.parse import urlsplit
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
+from backend.vision import (
+    start_visual_job,
+    get_visual_job_status
+)
 
 import re
 import sys
@@ -42,6 +46,9 @@ class TranscribeRequest(BaseModel):
     start_seconds: int = Field(ge=0)
     language: str | None = None
 
+class VisualAnalysisRequest(BaseModel):
+    job_id: UUID
+    start_seconds: int = Field(default=0, ge=0)
 
 def validate_twitch_url(url: str):
 
@@ -220,7 +227,7 @@ def prepare_twitch_video(data: TwitchPrepareRequest):
     )
 
     # Durasi cuplikan yang akan diambil
-    clip_duration = 30
+    clip_duration = 60
 
     start = data.start_seconds
     end = start + clip_duration
@@ -452,3 +459,69 @@ def transcribe_audio(data: TranscribeRequest):
             detail="Audio transcription failed"
         )
 
+# ==========================================
+# 11. START AI VISUAL ANALYSIS
+# ==========================================
+
+@app.post("/api/ai/analyze-visual", status_code=202)
+def analyze_visual(data: VisualAnalysisRequest):
+
+    job_id = str(data.job_id)
+    job_dir = OUTPUT_DIR / job_id
+
+    if not job_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail="Job folder not found"
+        )
+
+    if not (job_dir / "clip.mp4").is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Video not found for this job"
+        )
+
+    try:
+        return start_visual_job(
+            job_dir=job_dir,
+            job_id=job_id,
+            start_seconds=data.start_seconds
+        )
+
+    except RuntimeError as error:
+        if "Another visual analysis" in str(error):
+            raise HTTPException(
+                status_code=409,
+                detail=str(error)
+            )
+        raise
+
+
+# ==========================================
+# 12. CHECK AI VISUAL STATUS
+# ==========================================
+
+@app.get("/api/ai/visual-status/{job_id}")
+def visual_status(job_id: UUID):
+
+    job_id_string = str(job_id)
+    job_dir = OUTPUT_DIR / job_id_string
+
+    if not job_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail="Job folder not found"
+        )
+
+    result = get_visual_job_status(
+        job_dir,
+        job_id_string
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No visual analysis found for this job"
+        )
+
+    return result
