@@ -11,6 +11,9 @@ from backend.vision import (
     start_visual_job,
     get_visual_job_status
 )
+from backend.highlights import detect_highlights
+from backend.pause_transcription import transcribe_with_pauses
+from backend.refinement import start_refinement, get_refinement_status
 
 import re
 import sys
@@ -459,10 +462,6 @@ def transcribe_audio(data: TranscribeRequest):
             detail="Audio transcription failed"
         )
 
-# ==========================================
-# 11. START AI VISUAL ANALYSIS
-# ==========================================
-
 @app.post("/api/ai/analyze-visual", status_code=202)
 def analyze_visual(data: VisualAnalysisRequest):
 
@@ -496,11 +495,6 @@ def analyze_visual(data: VisualAnalysisRequest):
             )
         raise
 
-
-# ==========================================
-# 12. CHECK AI VISUAL STATUS
-# ==========================================
-
 @app.get("/api/ai/visual-status/{job_id}")
 def visual_status(job_id: UUID):
 
@@ -512,7 +506,6 @@ def visual_status(job_id: UUID):
             status_code=404,
             detail="Job folder not found"
         )
-
     result = get_visual_job_status(
         job_dir,
         job_id_string
@@ -522,6 +515,135 @@ def visual_status(job_id: UUID):
         raise HTTPException(
             status_code=404,
             detail="No visual analysis found for this job"
+        )
+
+    return result
+
+@app.post("/api/ai/detect-highlights")
+def detect_video_highlights(data: VisualAnalysisRequest):
+
+    job_id = str(data.job_id)
+    job_dir = OUTPUT_DIR /job_id
+
+    if not job_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail="Job folder not found"
+        )
+    try:
+        result = detect_highlights(
+            job_dir=job_dir,
+            job_id=job_id
+        )
+
+        return result
+
+    except FileNotFoundError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error)
+        )
+
+    except (ValueError, TypeError) as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+    
+class PauseTranscriptionRequest(BaseModel):
+    job_id: UUID
+    start_seconds: int = Field(default=0, ge=0)
+    language: str = "en"
+
+
+@app.post("/api/ai/transcribe-pauses")
+def transcribe_pauses(data: PauseTranscriptionRequest):
+
+    job_id = str(data.job_id)
+    job_dir = OUTPUT_DIR / job_id
+
+    if not job_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail="Job folder not found"
+        )
+
+    if data.language not in ("en", "id"):
+        raise HTTPException(
+            status_code=400,
+            detail="Language must be 'en' or 'id'"
+        )
+
+    try:
+        result = transcribe_with_pauses(
+            job_dir=job_dir,
+            job_id=job_id,
+            start_seconds=data.start_seconds,
+            language=data.language
+        )
+
+        return result
+
+    except FileNotFoundError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error)
+        )
+
+    except (ValueError, RuntimeError) as error:
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
+
+
+@app.post("/api/ai/refine-transcript", status_code=202)
+def refine_transcript(data: VisualAnalysisRequest):
+    job_id = str(data.job_id)
+    job_dir = OUTPUT_DIR / job_id
+
+    if not job_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail="Job folder not found"
+        )
+
+    if not (job_dir / "pause_transcript.json").is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Pause transcript not found"
+        )
+
+    try:
+        return start_refinement(job_dir, job_id)
+
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error)
+        )
+
+
+@app.get("/api/ai/refinement-status/{job_id}")
+def refinement_status(job_id: UUID):
+    job_id_string = str(job_id)
+    job_dir = OUTPUT_DIR / job_id_string
+
+    if not job_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail="Job folder not found"
+        )
+
+    result = get_refinement_status(
+        job_dir,
+        job_id_string
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No refinement found for this job"
         )
 
     return result
