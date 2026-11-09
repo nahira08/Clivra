@@ -14,6 +14,8 @@ from backend.vision import (
 from backend.highlights import detect_highlights
 from backend.pause_transcription import transcribe_with_pauses
 from backend.refinement import start_refinement, get_refinement_status
+from fastapi.responses import FileResponse
+from backend.clipping import export_highlights
 
 import re
 import sys
@@ -52,6 +54,11 @@ class TranscribeRequest(BaseModel):
 class VisualAnalysisRequest(BaseModel):
     job_id: UUID
     start_seconds: int = Field(default=0, ge=0)
+
+class ClippingRequest(BaseModel):
+    job_id: UUID
+    start: float = Field(ge=0)
+    end: float = Field(gt=0)
 
 def validate_twitch_url(url: str):
 
@@ -647,3 +654,64 @@ def refinement_status(job_id: UUID):
         )
 
     return result
+
+@app.post("/api/videos/clip")
+def create_video_clip(data: ClippingRequest):
+    job_id = str(data.job_id)
+    job_dir = OUTPUT_DIR / job_id
+
+    if not job_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail="Job folder not found"
+        )
+
+    try:
+        return export_highlights(
+            job_id=job_id,
+            start=data.start,
+            end=data.end,
+            outputs_dir=OUTPUT_DIR
+        )
+
+    except FileNotFoundError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error)
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
+
+@app.get("/api/videos/download/{job_id}/{filename}")
+def download_video_clip(job_id: UUID, filename: str):
+    clips_dir = OUTPUT_DIR / str(job_id) / "clips"
+
+    if not re.fullmatch(r"highlight_[0-9]{3,}\.mp4", filename):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename"
+        )
+
+    video_path = clips_dir / filename
+
+    if not video_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Highlight video not found"
+        )
+
+    return FileResponse(
+        path=video_path,
+        media_type="video/mp4",
+        filename=filename
+    )
