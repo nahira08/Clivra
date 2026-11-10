@@ -1,0 +1,276 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+    <meta
+        name="description"
+        content="Clivra - AI-powered Twitch VOD assistant"
+    >
+
+    <title>Clivra | Twitch VOD Assistant</title>
+
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="app-shell">
+
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">✦</div>
+                <span>Clivra<span class="brand-dot">.</span></span>
+            </div>
+
+            <div class="sidebar-section">
+                <span class="sidebar-label">WORKSPACE</span>
+
+                <div class="nav-item active">
+                    <span class="nav-icon">▦</span>
+                    Dashboard
+                </div>
+
+                <div class="nav-item muted">
+                    <span class="nav-icon">◷</span>
+                    Analysis history
+                    <span class="soon">Soon</span>
+                </div>
+            </div>
+
+            <div class="sidebar-bottom">
+                <div class="sidebar-note">
+                    <span class="sidebar-note-icon">✧</span>
+                    <strong>Built for editors</strong>
+                    <p>
+                        Spend less time searching VODs
+                        and more time creating.
+                    </p>
+                </div>
+
+                <span class="version">Clivra · Milestone 7A</span>
+            </div>
+        </aside>
+
+        <main class="main-content">
+
+            <header class="topbar">
+                <div class="breadcrumb">
+                    Workspace <span>/</span>
+                    <strong>Dashboard</strong>
+                </div>
+
+                <span class="topbar-tag">
+                    <span class="status-dot"></span>
+                    Frontend Preview
+                </span>
+            </header>
+
+            <div class="page-content">
+
+                <section class="hero">
+                    <div class="eyebrow">
+                        <span>✦</span>
+                        AI-POWERED TWITCH ASSISTANT
+                    </div>
+
+                    <h1>
+                        Find moments
+                        <span>worth clipping.</span>
+                    </h1>
+
+                    <p class="hero-description">
+                        Explore conversations from long Twitch
+                        streams with searchable transcripts
+                        and clickable timestamps.
+                    </p>
+                </section>
+
+                <section class="panel input-panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>Analyze a Twitch VOD</h2>
+                            <p>
+                                Start by entering a Twitch VOD URL.
+                            </p>
+                        </div>
+                        <span class="panel-step">01 / INPUT</span>
+                    </div>
+
+                    <form id="vod-form">
+                        <label for="vod-url">
+                            Twitch VOD URL
+                        </label>
+
+                        <div class="url-field">
+                            <span class="field-icon">↗</span>
+                            <input
+                                id="vod-url"
+                                type="url"
+                                placeholder="https://www.twitch.tv/videos/..."
+                                autocomplete="url"
+                                required
+                            >
+                        </div>
+
+                        <button
+                            class="primary-button"
+                            type="submit"
+                        >
+                            View Transcript
+                            <span>→</span>
+                        </button>
+                    </form>
+
+                    <div class="import-area">
+                        <div>
+                            <strong>Import existing transcript</strong>
+                            <p>
+                                For this preview, import the
+                                merged_transcript.json generated
+                                by Clivra's backend.
+                            </p>
+                        </div>
+
+                        <label
+                            class="secondary-button"
+                            for="transcript-file"
+                        >
+                            Import JSON
+                        </label>
+
+                        <input
+                            id="transcript-file"
+                            type="file"
+                            accept=".json,application/json"
+                            hidden
+                        >
+                    </div>
+
+                    <p
+                        id="status-message"
+                        class="status-message"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        Enter a VOD URL and import its transcript
+                        to explore the results.
+                    </p>
+                </section>
+
+                <section
+                    id="results-section"
+                    class="results-section"
+                    hidden
+                >
+                    <div class="section-title">
+                        <div>
+                            <div class="eyebrow">
+                                YOUR WORKSPACE
+                            </div>
+                            <h2>VOD Overview</h2>
+                        </div>
+
+                        <a
+                            id="open-vod"
+                            class="external-link"
+                            href="#"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Open Twitch VOD ↗
+                        </a>
+                    </div>
+
+                    <div class="video-info">
+                        <span class="video-label">
+                            SOURCE VIDEO
+                        </span>
+
+                        <h3 id="video-title">
+                            Untitled Twitch VOD
+                        </h3>
+
+                        <p id="video-subtitle"></p>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span>VOD Duration</span>
+                            <strong id="stat-duration">—</strong>
+                        </div>
+
+                        <div class="stat-card">
+                            <span>Transcribed Words</span>
+                            <strong id="stat-words">—</strong>
+                        </div>
+
+                        <div class="stat-card">
+                            <span>Speech Segments</span>
+                            <strong id="stat-segments">—</strong>
+                        </div>
+
+                        <div class="stat-card">
+                            <span>VOD Segments Processed</span>
+                            <strong id="stat-processed">—</strong>
+                        </div>
+                    </div>
+
+                    <section class="panel transcript-panel">
+                        <div class="panel-header">
+                            <div>
+                                <h2>Transcript Timeline</h2>
+                                <p>
+                                    Search dialogue and jump
+                                    to its original Twitch timestamp.
+                                </p>
+                            </div>
+
+                            <span
+                                id="transcript-count"
+                                class="count-label"
+                            >
+                                0 results
+                            </span>
+                        </div>
+
+                        <div class="search-field">
+                            <span>⌕</span>
+
+                            <input
+                                id="search-transcript"
+                                type="search"
+                                placeholder="Search conversations..."
+                                aria-label="Search transcript"
+                            >
+                        </div>
+
+                        <div
+                            id="transcript-list"
+                            class="transcript-list"
+                        ></div>
+
+                        <div
+                            id="empty-search"
+                            class="empty-search"
+                            hidden
+                        >
+                            No matching conversations found.
+                        </div>
+                    </section>
+                </section>
+
+                <footer>
+                    Clivra · AI-assisted VOD exploration
+                    <span>
+                        Funny moment detection is coming later.
+                    </span>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
