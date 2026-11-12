@@ -1,0 +1,635 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clivra - Funny Moments</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: Inter, Arial, sans-serif;
+            background: #0c0a13;
+            color: #f5f3ff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(
+                    circle at 80% 0%,
+                    rgba(130, 75, 230, 0.16),
+                    transparent 35%
+                ),
+                #0c0a13;
+        }
+
+        .container {
+            width: min(100% - 40px, 1050px);
+            margin: 0 auto;
+            padding: 40px 0 80px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 52px;
+        }
+
+        .brand {
+            font-size: 24px;
+            font-weight: 800;
+            color: #c5a6ff;
+            text-decoration: none;
+            letter-spacing: -1px;
+        }
+
+        .back-link {
+            color: #b5adc7;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            color: white;
+        }
+
+        .eyebrow {
+            color: #b997ff;
+            font-size: 12px;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+
+        h1 {
+            font-size: clamp(30px, 5vw, 48px);
+            letter-spacing: -1.5px;
+            margin: 12px 0;
+        }
+
+        .subtitle {
+            max-width: 640px;
+            color: #aaa2b9;
+            line-height: 1.7;
+            margin-bottom: 30px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        input {
+            flex: 1;
+            min-width: 220px;
+            padding: 15px 17px;
+            border: 1px solid #393146;
+            border-radius: 12px;
+            background: #171320;
+            color: white;
+            font: inherit;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #a477fa;
+        }
+
+        button,
+        .twitch-link {
+            border: 0;
+            border-radius: 12px;
+            background: #9461eb;
+            color: white;
+            padding: 14px 20px;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        button:hover,
+        .twitch-link:hover {
+            background: #a779f6;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        .status {
+            color: #bfb4cd;
+            min-height: 22px;
+            margin-bottom: 20px;
+        }
+
+        .error {
+            color: #ff9caa;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 35px;
+        }
+
+        .stat {
+            background: #191522;
+            border: 1px solid #30283d;
+            padding: 20px;
+            border-radius: 16px;
+        }
+
+        .stat-label {
+            color: #a69ab7;
+            font-size: 13px;
+        }
+
+        .stat-value {
+            margin-top: 8px;
+            font-size: 30px;
+            font-weight: 800;
+        }
+
+        .section-title {
+            font-size: 21px;
+            margin-bottom: 18px;
+        }
+
+        .moments {
+            display: grid;
+            gap: 18px;
+        }
+
+        .moment {
+            background: #181420;
+            border: 1px solid #342b40;
+            border-radius: 18px;
+            padding: 24px;
+        }
+
+        .moment-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .timestamp {
+            color: #d0b7ff;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .badge {
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            background: #393045;
+            color: #e4d9ef;
+        }
+
+        .badge.recommended {
+            background: #163d34;
+            color: #8ce7c5;
+        }
+
+        .badge.rejected {
+            background: #49292d;
+            color: #ffabb5;
+        }
+
+        .dialogue {
+            font-size: 17px;
+            line-height: 1.7;
+            margin: 25px 0;
+            padding-left: 18px;
+            border-left: 3px solid #9461eb;
+        }
+
+        .reason {
+            color: #bcb1cb;
+            line-height: 1.7;
+        }
+
+        .evidence {
+            margin-top: 22px;
+            padding-top: 20px;
+            border-top: 1px solid #342b40;
+            display: grid;
+            gap: 10px;
+            color: #bcb1cb;
+            font-size: 14px;
+        }
+
+        .evidence strong {
+            color: #f3edff;
+        }
+
+        .actions {
+            margin-top: 24px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .twitch-link {
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        .empty {
+            padding: 45px;
+            text-align: center;
+            border: 1px dashed #453650;
+            border-radius: 18px;
+            color: #a99db9;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        @media (max-width: 600px) {
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .moment {
+                padding: 18px;
+            }
+
+            .container {
+                width: min(100% - 28px, 1050px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <nav class="topbar">
+            <a class="brand" href="index.html">
+                Clivra
+            </a>
+
+            <a class="back-link" href="index.html">
+                Back to Dashboard
+            </a>
+        </nav>
+
+        <span class="eyebrow">AI MOMENT DISCOVERY</span>
+
+        <h1>Funny Moment Results</h1>
+
+        <p class="subtitle">
+            Explore potential funny moments detected in a
+            Twitch VOD. Each result includes its original
+            timestamp, dialogue, and supporting evidence.
+        </p>
+
+        <form id="result-form" class="toolbar">
+            <input
+                id="job-id"
+                type="text"
+                value="vod_2908789641_2410_60"
+                aria-label="VOD Job ID"
+                required
+            >
+
+            <button id="load-button" type="submit">
+                Load Results
+            </button>
+        </form>
+
+        <p id="status" class="status" role="status"></p>
+
+        <section id="result-content" hidden>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Recommended</div>
+                    <div id="recommended-count" class="stat-value">0</div>
+                </div>
+
+                <div class="stat">
+                    <div class="stat-label">Needs Review</div>
+                    <div id="review-count" class="stat-value">0</div>
+                </div>
+
+                <div class="stat">
+                    <div class="stat-label">Rejected</div>
+                    <div id="rejected-count" class="stat-value">0</div>
+                </div>
+            </div>
+
+            <h2 class="section-title">Detected Moments</h2>
+
+            <div id="moments" class="moments"></div>
+        </section>
+    </main>
+
+    <script>
+        "use strict";
+
+        const API_URL = "http://127.0.0.1:8001";
+
+        const form = document.getElementById("result-form");
+        const jobInput = document.getElementById("job-id");
+        const loadButton = document.getElementById("load-button");
+        const statusMessage = document.getElementById("status");
+        const resultContent = document.getElementById("result-content");
+        const momentsContainer = document.getElementById("moments");
+
+        const recommendedCount = document.getElementById("recommended-count");
+        const reviewCount = document.getElementById("review-count");
+        const rejectedCount = document.getElementById("rejected-count");
+
+        function createElement(tag, className, content) {
+            const element = document.createElement(tag);
+
+            if (className) {
+                element.className = className;
+            }
+
+            if (content !== undefined && content !== null) {
+                element.textContent = String(content);
+            }
+
+            return element;
+        }
+
+        function formatStatus(status) {
+            const labels = {
+                recommended: "Recommended",
+                needs_review: "Needs Review",
+                rejected: "Rejected"
+            };
+
+            return labels[status] || "Unknown";
+        }
+
+        function getDialogue(moment) {
+            const trigger = String(
+                moment.trigger_text || ""
+            ).trim();
+
+            if (trigger) {
+                return trigger;
+            }
+
+            if (Array.isArray(moment.transcript)) {
+                return moment.transcript
+                    .map(item => item.text || "")
+                    .join(" ")
+                    .trim();
+            }
+
+            return "No dialogue available.";
+        }
+
+        function createEvidenceRow(label, value) {
+            const row = createElement("div");
+            const strong = createElement(
+                "strong",
+                "",
+                label + ": "
+            );
+
+            const detail = document.createTextNode(
+                String(value)
+            );
+
+            row.append(strong, detail);
+
+            return row;
+        }
+
+        function renderMoment(moment) {
+            const card = createElement("article", "moment");
+
+            const header = createElement(
+                "div",
+                "moment-header"
+            );
+
+            const time = createElement(
+                "span",
+                "timestamp",
+                moment.timestamp || "Unknown time"
+            );
+
+            const status = String(
+                moment.status || "needs_review"
+            );
+
+            const badge = createElement(
+                "span",
+                "badge " + status,
+                formatStatus(status)
+            );
+
+            header.append(time, badge);
+
+            const dialogue = createElement(
+                "blockquote",
+                "dialogue",
+                getDialogue(moment)
+            );
+
+            const reason = createElement(
+                "p",
+                "reason",
+                moment.reason || "No explanation provided."
+            );
+
+            const evidence = createElement(
+                "div",
+                "evidence"
+            );
+
+            const transcriptReview = (
+                moment.transcript_review || {}
+            );
+
+            const visual = (
+                moment.visual_evidence || {}
+            );
+
+            const audio = (
+                moment.audio_evidence || {}
+            );
+
+            evidence.append(
+                createEvidenceRow(
+                    "Transcript AI",
+                    transcriptReview.decision || "Unavailable"
+                ),
+                createEvidenceRow(
+                    "Visual Frames",
+                    visual.frames_analyzed || 0
+                ),
+                createEvidenceRow(
+                    "Audio",
+                    audio.classification || "Unavailable"
+                ),
+                createEvidenceRow(
+                    "Evidence",
+                    transcriptReview.evidence_quote ||
+                    "No verified quote"
+                )
+            );
+
+            const actions = createElement(
+                "div",
+                "actions"
+            );
+
+            if (
+                typeof moment.twitch_url === "string"
+                && /^https:\/\/www\.twitch\.tv\/videos\/\d+\?t=\d+h\d+m\d+s$/.test(
+                    moment.twitch_url
+                )
+            ) {
+                const link = createElement(
+                    "a",
+                    "twitch-link",
+                    "Watch on Twitch"
+                );
+
+                link.href = moment.twitch_url;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+
+                actions.append(link);
+            }
+
+            card.append(
+                header,
+                dialogue,
+                reason,
+                evidence,
+                actions
+            );
+
+            return card;
+        }
+
+        function renderResults(data) {
+            const moments = Array.isArray(
+                data.all_moments
+            ) ? data.all_moments : [];
+
+            recommendedCount.textContent = String(
+                data.recommended_count || 0
+            );
+
+            reviewCount.textContent = String(
+                data.needs_review_count || 0
+            );
+
+            rejectedCount.textContent = String(
+                data.rejected_count || 0
+            );
+
+            const fragment = document.createDocumentFragment();
+
+            for (const moment of moments) {
+                fragment.append(
+                    renderMoment(moment)
+                );
+            }
+
+            if (!moments.length) {
+                fragment.append(
+                    createElement(
+                        "div",
+                        "empty",
+                        "No analyzed moments found."
+                    )
+                );
+            }
+
+            momentsContainer.replaceChildren(fragment);
+            resultContent.hidden = false;
+        }
+
+        async function loadResults(jobId) {
+            loadButton.disabled = true;
+            resultContent.hidden = true;
+
+            statusMessage.classList.remove("error");
+            statusMessage.textContent = "Loading analysis results...";
+
+            try {
+                const response = await fetch(
+                    API_URL
+                    + "/api/long-vod/fusion/"
+                    + encodeURIComponent(jobId)
+                );
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        data.detail || "Unable to load results."
+                    );
+                }
+
+                renderResults(data);
+
+                statusMessage.textContent =
+                    "Analysis results loaded successfully.";
+
+            } catch (error) {
+                statusMessage.classList.add("error");
+                statusMessage.textContent =
+                    error.message || "Connection failed.";
+
+            } finally {
+                loadButton.disabled = false;
+            }
+        }
+
+        form.addEventListener("submit", event => {
+            event.preventDefault();
+
+            const jobId = jobInput.value.trim();
+
+            if (!/^vod_\d+_\d+_\d+$/.test(jobId)) {
+                statusMessage.classList.add("error");
+                statusMessage.textContent = "Invalid VOD job ID.";
+                return;
+            }
+
+            loadResults(jobId);
+        });
+
+        const params = new URLSearchParams(
+            window.location.search
+        );
+
+        const queryJobId = params.get("job_id");
+
+        if (
+            queryJobId
+            && /^vod_\d+_\d+_\d+$/.test(queryJobId)
+        ) {
+            jobInput.value = queryJobId;
+        }
+
+        loadResults(jobInput.value.trim());
+    </script>
+</body>
+</html>
