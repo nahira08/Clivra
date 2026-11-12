@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta
@@ -14,20 +14,44 @@
 
     <title>Clivra | Twitch VOD Assistant</title>
 
+    <script>
+        try {
+            const savedTheme = localStorage.getItem("clivra-theme");
+
+            const systemDark = window.matchMedia(
+                "(prefers-color-scheme: dark)"
+            ).matches;
+
+            document.documentElement.dataset.theme =
+                savedTheme === "light" || savedTheme === "dark"
+                    ? savedTheme
+                    : systemDark
+                        ? "dark"
+                        : "light";
+        } catch {
+            document.documentElement.dataset.theme = "dark";
+        }
+    </script>
+
     <link rel="stylesheet" href="style.css">
     <script src="app.js" defer></script>
 </head>
+
 <body>
     <div class="app-shell">
 
         <aside class="sidebar">
             <div class="brand">
                 <div class="brand-icon">✦</div>
-                <span>Clivra<span class="brand-dot">.</span></span>
+                <span>
+                    Clivra<span class="brand-dot">.</span>
+                </span>
             </div>
 
             <div class="sidebar-section">
-                <span class="sidebar-label">WORKSPACE</span>
+                <span class="sidebar-label">
+                    WORKSPACE
+                </span>
 
                 <div class="nav-item active">
                     <span class="nav-icon">▦</span>
@@ -44,14 +68,18 @@
             <div class="sidebar-bottom">
                 <div class="sidebar-note">
                     <span class="sidebar-note-icon">✧</span>
+
                     <strong>Built for editors</strong>
+
                     <p>
                         Spend less time searching VODs
                         and more time creating.
                     </p>
                 </div>
 
-                <span class="version">Clivra · Milestone 7A</span>
+                <span class="version">
+                    Clivra · Milestone 7B
+                </span>
             </div>
         </aside>
 
@@ -59,14 +87,37 @@
 
             <header class="topbar">
                 <div class="breadcrumb">
-                    Workspace <span>/</span>
+                    Workspace
+                    <span>/</span>
                     <strong>Dashboard</strong>
                 </div>
 
-                <span class="topbar-tag">
-                    <span class="status-dot"></span>
-                    Frontend Preview
-                </span>
+                <div class="topbar-actions">
+
+                    <span class="topbar-tag">
+                        <span class="status-dot"></span>
+                        Frontend Preview
+                    </span>
+
+                    <button
+                        id="theme-toggle"
+                        class="theme-toggle"
+                        type="button"
+                        aria-label="Switch theme"
+                        title="Switch theme"
+                    >
+                        <span
+                            id="theme-icon"
+                            class="theme-icon"
+                            aria-hidden="true"
+                        >☀</span>
+
+                        <span id="theme-label">
+                            Light mode
+                        </span>
+                    </button>
+
+                </div>
             </header>
 
             <div class="page-content">
@@ -90,23 +141,34 @@
                 </section>
 
                 <section class="panel input-panel">
+
                     <div class="panel-header">
                         <div>
                             <h2>Analyze a Twitch VOD</h2>
+
                             <p>
-                                Start by entering a Twitch VOD URL.
+                                Enter a Twitch VOD URL to start
+                                analyzing the stream.
                             </p>
                         </div>
-                        <span class="panel-step">01 / INPUT</span>
+
+                        <span class="panel-step">
+                            01 / INPUT
+                        </span>
                     </div>
 
                     <form id="vod-form">
+
                         <label for="vod-url">
                             Twitch VOD URL
                         </label>
 
                         <div class="url-field">
-                            <span class="field-icon">↗</span>
+                            <span
+                                class="field-icon"
+                                aria-hidden="true"
+                            >↗</span>
+
                             <input
                                 id="vod-url"
                                 type="url"
@@ -120,18 +182,22 @@
                             class="primary-button"
                             type="submit"
                         >
-                            View Transcript
+                            Analyze VOD
                             <span>→</span>
                         </button>
+
                     </form>
 
                     <div class="import-area">
                         <div>
-                            <strong>Import existing transcript</strong>
+                            <strong>
+                                Import existing transcript
+                            </strong>
+
                             <p>
-                                For this preview, import the
-                                merged_transcript.json generated
-                                by Clivra's backend.
+                                Alternatively, import a
+                                merged_transcript.json file
+                                generated by Clivra's backend.
                             </p>
                         </div>
 
@@ -156,9 +222,9 @@
                         role="status"
                         aria-live="polite"
                     >
-                        Enter a VOD URL and import its transcript
-                        to explore the results.
+                        Enter a Twitch VOD URL to begin analysis.
                     </p>
+
                 </section>
 
                 <section
@@ -166,11 +232,13 @@
                     class="results-section"
                     hidden
                 >
+
                     <div class="section-title">
                         <div>
                             <div class="eyebrow">
                                 YOUR WORKSPACE
                             </div>
+
                             <h2>VOD Overview</h2>
                         </div>
 
@@ -198,34 +266,61 @@
                     </div>
 
                     <div class="stats-grid">
+
                         <div class="stat-card">
-                            <span>VOD Duration</span>
-                            <strong id="stat-duration">—</strong>
+                            <span>
+                                VOD Duration
+                            </span>
+
+                            <strong id="stat-duration">
+                                —
+                            </strong>
                         </div>
 
                         <div class="stat-card">
-                            <span>Transcribed Words</span>
-                            <strong id="stat-words">—</strong>
+                            <span>
+                                Transcribed Words
+                            </span>
+
+                            <strong id="stat-words">
+                                —
+                            </strong>
                         </div>
 
                         <div class="stat-card">
-                            <span>Speech Segments</span>
-                            <strong id="stat-segments">—</strong>
+                            <span>
+                                Speech Segments
+                            </span>
+
+                            <strong id="stat-segments">
+                                —
+                            </strong>
                         </div>
 
                         <div class="stat-card">
-                            <span>VOD Segments Processed</span>
-                            <strong id="stat-processed">—</strong>
+                            <span>
+                                VOD Segments Processed
+                            </span>
+
+                            <strong id="stat-processed">
+                                —
+                            </strong>
                         </div>
+
                     </div>
 
                     <section class="panel transcript-panel">
+
                         <div class="panel-header">
                             <div>
-                                <h2>Transcript Timeline</h2>
+                                <h2>
+                                    Transcript Timeline
+                                </h2>
+
                                 <p>
                                     Search dialogue and jump
-                                    to its original Twitch timestamp.
+                                    directly to its original
+                                    Twitch timestamp.
                                 </p>
                             </div>
 
@@ -238,7 +333,7 @@
                         </div>
 
                         <div class="search-field">
-                            <span>⌕</span>
+                            <span aria-hidden="true">⌕</span>
 
                             <input
                                 id="search-transcript"
@@ -260,17 +355,24 @@
                         >
                             No matching conversations found.
                         </div>
+
                     </section>
+
                 </section>
 
                 <footer>
-                    Clivra · AI-assisted VOD exploration
+                    <span>
+                        Clivra · AI-assisted VOD exploration
+                    </span>
+
                     <span>
                         Funny moment detection is coming later.
                     </span>
                 </footer>
+
             </div>
         </main>
+
     </div>
 </body>
 </html>
