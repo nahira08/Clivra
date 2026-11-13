@@ -73,7 +73,7 @@ def find_model():
 
     if not models:
         raise FileNotFoundError(
-            "Qwen model not found in Hugging Face cache. "
+            "Qwen model not found. "
             "Use --model to specify its location."
         )
 
@@ -86,6 +86,24 @@ def read_json(path):
         encoding="utf-8"
     ) as file:
         return json.load(file)
+
+
+def write_json(path, data):
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    with path.open(
+        "w",
+        encoding="utf-8"
+    ) as file:
+        json.dump(
+            data,
+            file,
+            indent=2,
+            ensure_ascii=False
+        )
 
 
 def run_command(command, label):
@@ -129,18 +147,159 @@ def validate_output(path, label):
             f"{label} produced invalid JSON."
         )
 
-    status = data.get("status")
-
-    if status in {
+    if data.get("status") in {
         "partial_failure",
         "failed",
         "error"
     }:
         raise RuntimeError(
-            f"{label} reported status: {status}."
+            f"{label} reported an error."
         )
 
     return data
+
+
+def run_or_reuse(
+    output_path,
+    command,
+    label,
+    reuse_existing
+):
+    if reuse_existing and output_path.is_file():
+        try:
+            data = validate_output(
+                output_path,
+                label
+            )
+
+            print()
+            print(
+                f"{label}: Reusing existing output.",
+                flush=True
+            )
+
+            return data
+
+        except (
+            ValueError,
+            RuntimeError,
+            json.JSONDecodeError
+        ):
+            print(
+                f"{label}: Existing output is invalid.",
+                flush=True
+            )
+
+    run_command(command, label)
+
+    return validate_output(
+        output_path,
+        label
+    )
+
+
+def get_candidate_count(data):
+    for key in (
+        "candidates",
+        "moments",
+        "funny_moments"
+    ):
+        value = data.get(key)
+
+        if isinstance(value, list):
+            return len(value)
+
+    for key in (
+        "total_candidates",
+        "candidate_count",
+        "candidates_found"
+    ):
+        value = data.get(key)
+
+        if isinstance(value, int) and value >= 0:
+            return value
+
+    return None
+
+
+def save_empty_result(job_dir, job_id, video_id):
+    """
+    No humor candidates is a valid analysis outcome.
+
+    The AI review stages are skipped because there
+    is no candidate to evaluate.
+    """
+
+    print()
+    print("[4/8] No candidates — skipping Qwen Humor Review.")
+    print("[5/8] No candidates — skipping evidence extraction.")
+    print("[6/8] No candidates — skipping Visual Review.")
+    print("[7/8] No candidates — skipping Audio Analysis.")
+    print("[8/8] Saving empty Evidence Fusion result.")
+    print(flush=True)
+
+    result = {
+        "status": "completed",
+        "job_id": job_id,
+        "video_id": video_id,
+        "total_candidates": 0,
+        "recommended_count": 0,
+        "needs_review_count": 0,
+        "rejected_count": 0,
+        "candidates": [],
+        "moments": [],
+        "results": [],
+        "analysis_note": (
+            "No humor candidates were detected "
+            "in the analyzed VOD segments."
+        )
+    }
+
+    write_json(
+        job_dir / "evidence_fusion.json",
+        result
+    )
+
+    return result
+
+
+def print_summary(result, job_dir, job_id):
+    print()
+    print("=" * 55)
+    print("CLIVRA PIPELINE COMPLETED")
+    print("=" * 55)
+
+    print(
+        "Candidates:",
+        result.get("total_candidates", 0)
+    )
+
+    print(
+        "Recommended:",
+        result.get("recommended_count", 0)
+    )
+
+    print(
+        "Needs review:",
+        result.get("needs_review_count", 0)
+    )
+
+    print(
+        "Rejected:",
+        result.get("rejected_count", 0)
+    )
+
+    print(
+        "Output:",
+        job_dir / "evidence_fusion.json"
+    )
+
+    print()
+    print("Open results:")
+    print(
+        "http://localhost:5500/moments.html"
+        f"?job_id={job_id}"
+    )
 
 
 def pipeline(
@@ -159,17 +318,6 @@ def pipeline(
 
     job_dir = OUTPUT_DIR / job_id
 
-    model_path = (
-        Path(model).expanduser().resolve()
-        if model
-        else find_model()
-    )
-
-    if not model_path.is_file():
-        raise FileNotFoundError(
-            f"Model not found: {model_path}"
-        )
-
     print()
     print("CLIVRA AUTOMATED PIPELINE")
     print("=" * 55)
@@ -177,23 +325,22 @@ def pipeline(
     print("Job ID:", job_id)
     print("Start:", start_seconds)
     print("Segment limit:", max_segments)
-    print("Model:", model_path.name)
 
-    manifest_path = (
-        job_dir / "manifest.json"
-    )
-
+    manifest_path = job_dir / "manifest.json"
     transcript_path = (
         job_dir / "merged_transcript.json"
     )
 
-    if (
-        reuse_existing
-        and manifest_path.is_file()
-    ):
-        print()
-        print("[1/8] Reusing downloaded VOD segments.")
+    detection_path = (
+        job_dir / "funny_moments.json"
+    )
 
+    if reuse_existing and manifest_path.is_file():
+        print()
+        print(
+            "[1/8] Reusing downloaded VOD segments.",
+            flush=True
+        )
     else:
         run_command(
             module_command(
@@ -212,13 +359,12 @@ def pipeline(
             "Download manifest was not created."
         )
 
-    if (
-        reuse_existing
-        and transcript_path.is_file()
-    ):
+    if reuse_existing and transcript_path.is_file():
         print()
-        print("[2/8] Reusing existing transcript.")
-
+        print(
+            "[2/8] Reusing existing transcript.",
+            flush=True
+        )
     else:
         run_command(
             module_command(
@@ -232,20 +378,76 @@ def pipeline(
             "[2/8] Transcribing VOD"
         )
 
-    if not transcript_path.is_file():
-        raise RuntimeError(
-            "Merged transcript was not created."
+    transcript = validate_output(
+        transcript_path,
+        "Transcription"
+    )
+
+    detection = run_or_reuse(
+        detection_path,
+        module_command(
+            "backend.funny_moments",
+            job_id
+        ),
+        "[3/8] Finding humor candidates",
+        reuse_existing
+    )
+
+    candidate_count = get_candidate_count(
+        detection
+    )
+
+    transcript_segments = transcript.get(
+        "segments", []
+    )
+
+    if (
+        not isinstance(transcript_segments, list)
+        or len(transcript_segments) == 0
+    ):
+        print()
+        print(
+            "No dialogue detected in this VOD sample.",
+            flush=True
+        )
+        candidate_count = 0
+
+    if candidate_count == 0:
+        result = save_empty_result(
+            job_dir,
+            job_id,
+            video_id
         )
 
+        print_summary(
+            result,
+            job_dir,
+            job_id
+        )
+
+        return result
+
+    if candidate_count is None:
+        print(
+            "Candidate count unavailable; "
+            "continuing normal review.",
+            flush=True
+        )
+
+    model_path = (
+        Path(model).expanduser().resolve()
+        if model
+        else find_model()
+    )
+
+    if not model_path.is_file():
+        raise FileNotFoundError(
+            f"Model not found: {model_path}"
+        )
+
+    print("Model:", model_path.name)
+
     tasks = [
-        (
-            "detection",
-            "[3/8] Finding humor candidates",
-            module_command(
-                "backend.funny_moments",
-                job_id
-            )
-        ),
         (
             "humor_review",
             "[4/8] Reviewing humor with Qwen",
@@ -299,38 +501,11 @@ def pipeline(
             job_dir / output_names[stage]
         )
 
-        if (
-            reuse_existing
-            and output_path.is_file()
-        ):
-            try:
-                validate_output(
-                    output_path,
-                    label
-                )
-
-                print()
-                print(
-                    f"{label}: Reusing existing output."
-                )
-
-                continue
-
-            except (
-                ValueError,
-                RuntimeError,
-                json.JSONDecodeError
-            ):
-                print(
-                    f"{label}: Existing result is "
-                    f"invalid; running again."
-                )
-
-        run_command(command, label)
-
-        validate_output(
+        run_or_reuse(
             output_path,
-            label
+            command,
+            label,
+            reuse_existing
         )
 
     final_path = (
@@ -339,38 +514,10 @@ def pipeline(
 
     result = read_json(final_path)
 
-    print()
-    print("=" * 55)
-    print("CLIVRA PIPELINE COMPLETED")
-    print("=" * 55)
-
-    print(
-        "Candidates:",
-        result.get("total_candidates", 0)
-    )
-
-    print(
-        "Recommended:",
-        result.get("recommended_count", 0)
-    )
-
-    print(
-        "Needs review:",
-        result.get("needs_review_count", 0)
-    )
-
-    print(
-        "Rejected:",
-        result.get("rejected_count", 0)
-    )
-
-    print("Output:", final_path)
-
-    print()
-    print("Open results:")
-    print(
-        "http://localhost:5500/moments.html"
-        f"?job_id={job_id}"
+    print_summary(
+        result,
+        job_dir,
+        job_id
     )
 
     return result
